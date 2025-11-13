@@ -1,0 +1,63 @@
+name: CI → Build & Deploy to ECR/ECS
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ${{ secrets.ECR_REPOSITORY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Determine image tag (commit SHA)
+        run: echo "IMAGE_TAG=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${IMAGE_TAG} .
+      
+      - name: Push image to ECR
+        run: |
+          docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${IMAGE_TAG}
+
+      - name: Update ECS task definition & service
+        # This step assumes you have a task-def template at ecs/taskdef.json
+        # which has an image placeholder like "IMAGE_PLACEHOLDER"
+        run: |
+          # Build new taskdef by replacing placeholder with real image
+          IMAGE_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${IMAGE_TAG}
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ecs/taskdef.json > ecs/taskdef.generated.json
+          
+          # register new task definition
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://ecs/taskdef.generated.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "Registered: $TASK_DEF_ARN"
+
+          # update service (replace cluster and service names accordingly)
+          aws ecs update-service --cluster my-ecs-cluster --service my-ecs-service --force-new-deployment
+
+      - name: Notify success
+        run: echo "Deployed image ${IMAGE_URI} to ECS"
+
