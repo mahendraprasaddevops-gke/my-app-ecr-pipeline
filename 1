@@ -5,15 +5,9 @@ on:
       - main
 
 env:
-  #IMAGE_NAME: ${{ secrets.ECR_REPOSITORY }}
-  IMAGE_NAME: my-node-app-img 
-
-  #AWS_REGION: ${{ secrets.AWS_REGION }}
-#  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-
-  AWS_REGION: eu-west-1
-  AWS_ACCOUNT_ID: 575108930878
-  ECR_REPO_NAME: my-node-app-img
+  IMAGE_NAME: ${{ secrets.ECR_REPOSITORY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   build-and-deploy:
