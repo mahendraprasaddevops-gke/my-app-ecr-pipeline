@@ -1,31 +1,28 @@
-
-Aversion: 0.2
+version: 0.2
 
 env:
   variables:
     AWS_REGION: us-west-2
     ECR_REPO: hello-nodejs
     AWS_ACCOUNT_ID: 575108930878
+    IMAGE_TAG: latest
 
 phases:
   pre_build:
     commands:
-      - echo "testing build------aaaaaaaaaaaa--2----"
-      - aws ecr get-login-password --region $AWS_REGION |
-        docker login --username AWS --password-stdin \
-        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-      - IMAGE_TAG=latest
+      - echo "--------------------Logging in to Amazon ECR------------"
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
   build:
     commands:
       - docker build -t $ECR_REPO:$IMAGE_TAG .
-      - docker tag $ECR_REPO:$IMAGE_TAG \
-        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+      - docker tag $ECR_REPO:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
       - docker image ls
       - echo "image list-------------"
 
+
+
   post_build:
     commands:
-      - docker push \
-        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
